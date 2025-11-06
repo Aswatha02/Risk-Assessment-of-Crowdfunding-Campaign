@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 
-const ComparisonCharts = ({ prediction, onNewAnalysis }) => {
+const ComparisonCharts = ({ prediction, onNewAnalysis, originalCampaignData }) => {
   const [scenarios, setScenarios] = useState([
     { 
       label: 'Current', 
@@ -32,13 +32,102 @@ const ComparisonCharts = ({ prediction, onNewAnalysis }) => {
   ])
 
   const [sliderValues, setSliderValues] = useState({
-    goal: 10000,
-    duration: 30,
-    staff_pick: false,
-    country: 'US'
+    goal: originalCampaignData?.goal || 10000,
+    duration: originalCampaignData?.launch_to_deadline_days || 30,
+    staff_pick: originalCampaignData?.staff_pick || false,
+    country: originalCampaignData?.country || 'US'
   })
 
-  // Update probabilities when sliders change
+  const [isUpdating, setIsUpdating] = useState(false)
+  const [isOptimizing, setIsOptimizing] = useState(false)
+  const [optimizationResult, setOptimizationResult] = useState(null)
+
+  // Make real API calls when sliders change
+  useEffect(() => {
+    const updateScenariosWithAPI = async () => {
+      if (!originalCampaignData) return
+      
+      setIsUpdating(true)
+      
+      try {
+        const API_URL = 'http://localhost:8001'
+        
+        // Create scenarios with different parameters
+        const scenarioConfigs = [
+          {
+            label: 'Current',
+            ...originalCampaignData,
+            goal: sliderValues.goal,
+            launch_to_deadline_days: sliderValues.duration,
+            staff_pick: sliderValues.staff_pick,
+            country: sliderValues.country,
+            icon: '🎯'
+          },
+          {
+            label: 'Optimized',
+            ...originalCampaignData,
+            goal: Math.min(sliderValues.goal * 0.5, 15000),
+            launch_to_deadline_days: 35,
+            staff_pick: true,
+            country: 'US',
+            has_video: true,
+            number_of_images: Math.max(originalCampaignData.number_of_images || 0, 8),
+            icon: '🚀'
+          },
+          {
+            label: 'Aggressive',
+            ...originalCampaignData,
+            goal: sliderValues.goal * 2,
+            launch_to_deadline_days: 60,
+            staff_pick: false,
+            country: 'FR',
+            icon: '⚡'
+          }
+        ]
+        
+        // Make parallel API calls for all scenarios
+        const predictions = await Promise.all(
+          scenarioConfigs.map(async (config) => {
+            try {
+              const response = await fetch(`${API_URL}/predict`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(config)
+              })
+              const result = await response.json()
+              return {
+                ...config,
+                probability: result.success_probability,
+                risk_level: result.risk_level
+              }
+            } catch (error) {
+              console.error(`Error predicting ${config.label}:`, error)
+              return {
+                ...config,
+                probability: 0.5,
+                risk_level: 'Medium'
+              }
+            }
+          })
+        )
+        
+        setScenarios(predictions)
+      } catch (error) {
+        console.error('Error updating scenarios:', error)
+      } finally {
+        setIsUpdating(false)
+      }
+    }
+    
+    // Debounce API calls (wait 500ms after last slider change)
+    const timeoutId = setTimeout(() => {
+      updateScenariosWithAPI()
+    }, 500)
+    
+    return () => clearTimeout(timeoutId)
+  }, [sliderValues, originalCampaignData])
+
+  // Fallback: Update probabilities when sliders change (client-side calculation)
   useEffect(() => {
     const calculateScenarioProbability = (scenario) => {
       let goal, duration, staff_pick, country;
@@ -149,10 +238,52 @@ const ComparisonCharts = ({ prediction, onNewAnalysis }) => {
     return borders[index] || borders[0]
   }
 
+  const handleOptimize = async () => {
+    if (!originalCampaignData) return
+    
+    setIsOptimizing(true)
+    setOptimizationResult(null)
+    
+    try {
+      const API_URL = 'http://localhost:8001'
+      const response = await fetch(`${API_URL}/optimize`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(originalCampaignData)
+      })
+      
+      const result = await response.json()
+      setOptimizationResult(result)
+      
+      // Optionally update sliders to optimal values
+      if (result.optimal_config) {
+        setSliderValues({
+          goal: result.optimal_config.goal,
+          duration: result.optimal_config.duration,
+          staff_pick: result.optimal_config.staff_pick,
+          country: sliderValues.country
+        })
+      }
+    } catch (error) {
+      console.error('Optimization error:', error)
+      alert('Failed to optimize. Please try again.')
+    } finally {
+      setIsOptimizing(false)
+    }
+  }
+
   return (
     <div className="bg-white rounded-2xl p-8 shadow-xl border border-gray-100 fade-in">
       <div className="text-center mb-8">
-        <h2 className="text-3xl font-bold text-gray-800 mb-3">Scenario Comparison</h2>
+        <h2 className="text-3xl font-bold text-gray-800 mb-3 flex items-center justify-center">
+          Scenario Comparison
+          {isUpdating && (
+            <span className="ml-3 inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-700">
+              <i className="fas fa-sync fa-spin mr-2"></i>
+              Updating...
+            </span>
+          )}
+        </h2>
         <p className="text-gray-600 text-lg">Explore how different strategies affect your campaign success</p>
       </div>
       
@@ -377,14 +508,94 @@ const ComparisonCharts = ({ prediction, onNewAnalysis }) => {
         </div>
       </div>
 
+      {/* Optimization Result */}
+      {optimizationResult && optimizationResult.optimal_config && (
+        <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl p-6 border-2 border-green-200 mb-8">
+          <div className="flex items-center mb-4">
+            <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center mr-4">
+              <i className="fas fa-trophy text-white text-xl"></i>
+            </div>
+            <div>
+              <h3 className="text-2xl font-bold text-gray-800">Optimal Strategy Found!</h3>
+              <p className="text-gray-600">AI tested 8 different configurations</p>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div className="bg-white rounded-xl p-5 border border-green-200">
+              <div className="text-sm text-gray-600 mb-2">Current Success Rate</div>
+              <div className="text-4xl font-bold text-gray-800 mb-1">
+                {Math.round(optimizationResult.original_probability * 100)}%
+              </div>
+            </div>
+            
+            <div className="bg-white rounded-xl p-5 border border-green-200">
+              <div className="text-sm text-gray-600 mb-2">Optimized Success Rate</div>
+              <div className="text-4xl font-bold text-green-600 mb-1">
+                {Math.round(optimizationResult.optimal_config.probability * 100)}%
+              </div>
+              <div className="text-sm font-semibold text-green-600">
+                +{optimizationResult.improvement_percentage.toFixed(1)}% improvement
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-xl p-5 border border-green-200 mb-4">
+            <h4 className="font-semibold text-gray-800 mb-3">Recommended Configuration:</h4>
+            <div className="grid grid-cols-3 gap-4 text-center">
+              <div>
+                <div className="text-sm text-gray-600 mb-1">Goal</div>
+                <div className="text-xl font-bold text-gray-800">
+                  ${optimizationResult.optimal_config.goal.toLocaleString()}
+                </div>
+              </div>
+              <div>
+                <div className="text-sm text-gray-600 mb-1">Duration</div>
+                <div className="text-xl font-bold text-gray-800">
+                  {optimizationResult.optimal_config.duration} days
+                </div>
+              </div>
+              <div>
+                <div className="text-sm text-gray-600 mb-1">Staff Pick</div>
+                <div className="text-xl font-bold text-gray-800">
+                  {optimizationResult.optimal_config.staff_pick ? 'Yes' : 'No'}
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-xl p-5 border border-green-200">
+            <h4 className="font-semibold text-gray-800 mb-3">Action Items:</h4>
+            <ul className="space-y-2">
+              {optimizationResult.optimal_config.improvements.map((item, index) => (
+                <li key={index} className="flex items-start">
+                  <i className="fas fa-check-circle text-green-500 mr-2 mt-1"></i>
+                  <span className="text-gray-700">{item}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+
       {/* Action Buttons */}
       <div className="flex flex-col sm:flex-row gap-4">
         <button
-          onClick={() => onNewAnalysis()}
-          className="flex-1 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold py-4 px-8 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center justify-center"
+          onClick={handleOptimize}
+          disabled={isOptimizing}
+          className="flex-1 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white font-semibold py-4 px-8 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <i className="fas fa-rocket mr-3 text-lg"></i>
-          Apply Best Strategy
+          {isOptimizing ? (
+            <>
+              <i className="fas fa-spinner fa-spin mr-3 text-lg"></i>
+              Finding Best Strategy...
+            </>
+          ) : (
+            <>
+              <i className="fas fa-magic mr-3 text-lg"></i>
+              Find Optimal Strategy
+            </>
+          )}
         </button>
         
         <button

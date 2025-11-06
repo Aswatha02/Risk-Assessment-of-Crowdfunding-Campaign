@@ -1,5 +1,5 @@
 import numpy as np
-from decision_tree import DecisionTree
+from .decision_tree import DecisionTree
 
 class RandomForest:
     def __init__(self, n_trees=10, max_depth=10, min_samples_split=2, max_features=None):

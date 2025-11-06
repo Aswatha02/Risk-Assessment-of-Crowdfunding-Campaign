@@ -59,6 +59,13 @@ def parse_timedelta_string(td_str):
 # ---------------------------
 def load_data(filepath):
     df = pd.read_csv(filepath, low_memory=False)
+    
+    # Drop any unnamed index columns
+    unnamed_cols = [col for col in df.columns if col.startswith('Unnamed:')]
+    if unnamed_cols:
+        print(f"Dropping index columns: {unnamed_cols}")
+        df = df.drop(columns=unnamed_cols)
+    
     print(f"Data loaded. Shape: {df.shape}")
     return df
 
@@ -410,7 +417,7 @@ def full_preprocessing_pipeline(filepath):
 # 7. Run pipeline
 # ---------------------------
 def run_preprocessing():
-    print("🚀 Starting preprocessing pipeline...")
+    print("Starting preprocessing pipeline...")
     
     root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
     raw_path = os.path.join(root_dir, "data", "raw", "kickstarter_data_full.csv")
@@ -466,7 +473,7 @@ def run_preprocessing():
         for i, name in enumerate(feature_names):
             f.write(f"{i}: {name}\n")
     
-    print(f"✅ Preprocessing complete. Processed data saved to {processed_path}")
+    print(f"Preprocessing complete. Processed data saved to {processed_path}")
     print(f"Readable data saved to {readable_path}")
     print(f"Encoders saved to {encoders_path}")
     print(f"Feature names mapping saved to {feature_names_path}")

@@ -1,4 +1,5 @@
 import React from 'react'
+import RadarChart from './RadarChart'
 
 const FeatureImportancePlot = ({ prediction }) => {
   const { feature_importance } = prediction
@@ -42,19 +43,15 @@ const FeatureImportancePlot = ({ prediction }) => {
         ))}
       </div>
 
-      {/* Radar Chart Placeholder */}
+      {/* Interactive Radar Chart */}
       <div className="mt-8 p-6 bg-white/5 rounded-xl border border-white/10">
-        <div className="text-center">
-          <div className="radar-chart mx-auto w-48 h-48 rounded-full flex items-center justify-center mb-4">
-            <div className="text-white/50 text-sm text-center">
-              <i className="fas fa-chart-radar text-3xl mb-2 block"></i>
-              Feature Impact Radar
-            </div>
-          </div>
-          <p className="text-white/70 text-sm">
-            Visual representation of how different factors influence the prediction
-          </p>
+        <h3 className="text-white font-semibold mb-4 text-center">Feature Impact Radar</h3>
+        <div className="h-80">
+          <RadarChart featureImportance={feature_importance} />
         </div>
+        <p className="text-white/70 text-sm text-center mt-4">
+          Visual representation of how different factors influence the prediction
+        </p>
       </div>
 
       {/* Interpretation Guide */}

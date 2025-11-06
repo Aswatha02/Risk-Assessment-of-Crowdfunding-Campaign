@@ -5,24 +5,25 @@ import './index.css'
 
 function App() {
   const [prediction, setPrediction] = useState(null)
+  const [campaignData, setCampaignData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
-  const analyzeCampaign = async (campaignData) => {
+  const analyzeCampaign = async (inputData) => {
     setLoading(true)
     setError(null)
     
     try {
-      const API_URL = 'http://localhost:8000'
+      const API_URL = 'http://localhost:8001'
       
-      console.log('📤 Sending to backend server...', campaignData)
+      console.log('📤 Sending to backend server...', inputData)
 
       const response = await fetch(`${API_URL}/predict`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(campaignData),
+        body: JSON.stringify(inputData),
       })
 
       console.log('📥 Response status:', response.status)
@@ -34,6 +35,7 @@ function App() {
       const result = await response.json()
       console.log('✅ Prediction result:', result)
       setPrediction(result)
+      setCampaignData(inputData)
       
     } catch (err) {
       console.error('❌ API call failed:', err)
@@ -179,7 +181,7 @@ function App() {
             )}
 
             {prediction && !loading && (
-              <ResultsDashboard prediction={prediction} />
+              <ResultsDashboard prediction={prediction} campaignData={campaignData} />
             )}
 
             {!prediction && !loading && !error && (

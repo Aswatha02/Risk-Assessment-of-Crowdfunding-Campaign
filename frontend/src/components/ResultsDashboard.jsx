@@ -4,7 +4,7 @@ import FeatureImportancePlot from './FeatureImportancePlot'
 import Recommendations from './Recommendations'
 import ComparisonCharts from './ComparisonCharts'
 
-const ResultsDashboard = ({ prediction }) => {
+const ResultsDashboard = ({ prediction, campaignData }) => {
   return (
     <div className="space-y-6">
       {/* Risk Summary */}
@@ -46,6 +46,7 @@ const ResultsDashboard = ({ prediction }) => {
       {/* Scenario Comparison */}
       <ComparisonCharts 
         prediction={prediction}
+        originalCampaignData={campaignData}
         onNewAnalysis={() => window.location.reload()}
       />
 
