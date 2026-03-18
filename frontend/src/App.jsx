@@ -16,7 +16,7 @@ function App() {
     try {
       const API_URL = 'http://localhost:8001'
       
-      console.log('📤 Sending to backend server...', inputData)
+      console.log('Sending to backend server...', inputData)
 
       const response = await fetch(`${API_URL}/predict`, {
         method: 'POST',
@@ -26,19 +26,19 @@ function App() {
         body: JSON.stringify(inputData),
       })
 
-      console.log('📥 Response status:', response.status)
+      console.log(' Response status:', response.status)
 
       if (!response.ok) {
         throw new Error(`Server returned ${response.status}`)
       }
 
       const result = await response.json()
-      console.log('✅ Prediction result:', result)
+      console.log('Prediction result:', result)
       setPrediction(result)
       setCampaignData(inputData)
       
     } catch (err) {
-      console.error('❌ API call failed:', err)
+      console.error('API call failed:', err)
       setError(`Failed to get prediction: ${err.message}. Make sure the backend is running on port 8000.`)
     } finally {
       setLoading(false)
@@ -73,16 +73,16 @@ function App() {
           </p>
           <div className="flex flex-wrap justify-center gap-3 mb-8">
             <span className="px-4 py-2 bg-white/20 backdrop-blur-lg rounded-full text-white text-sm border border-white/30">
-              🚀 Machine Learning
+               Machine Learning
             </span>
             <span className="px-4 py-2 bg-white/20 backdrop-blur-lg rounded-full text-white text-sm border border-white/30">
-              📊 Real-time Analysis
+               Real-time Analysis
             </span>
             <span className="px-4 py-2 bg-white/20 backdrop-blur-lg rounded-full text-white text-sm border border-white/30">
-              💡 Smart Recommendations
+               Smart Recommendations
             </span>
             <span className="px-4 py-2 bg-white/20 backdrop-blur-lg rounded-full text-white text-sm border border-white/30">
-              🔮 Success Prediction
+               Success Prediction
             </span>
           </div>
         </div>

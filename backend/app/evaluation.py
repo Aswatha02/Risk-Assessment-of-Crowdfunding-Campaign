@@ -81,7 +81,7 @@ class ModelEvaluator:
         return metrics
     
     def print_metrics(self, metrics, model_name="Model"):
-        print(f"\n📊 {model_name} Evaluation:")
+        print(f"\n{model_name} Evaluation:")
         print(f"   Accuracy:  {metrics['accuracy']:.4f}")
         print(f"   Precision: {metrics['precision']:.4f}")
         print(f"   Recall:    {metrics['recall']:.4f}")
@@ -99,7 +99,7 @@ def evaluate_all_models(models, X_test, y_test, model_names):
     results = {}
     
     for i, (model, name) in enumerate(zip(models, model_names)):
-        print(f"\n🔍 Evaluating {name}...")
+        print(f"\nEvaluating {name}...")
         
         # Get predictions
         y_pred = model.predict(X_test)
@@ -115,7 +115,7 @@ def evaluate_all_models(models, X_test, y_test, model_names):
                 else:
                     y_pred_proba = proba_result  # Use as is
             except Exception as e:
-                print(f"   ⚠️  Could not get probabilities: {e}")
+                print(f"   Warning: Could not get probabilities: {e}")
                 y_pred_proba = None
         
         metrics = evaluator.evaluate_model(y_test, y_pred, y_pred_proba, name)

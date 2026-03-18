@@ -88,14 +88,14 @@ app.add_middleware(
         "http://127.0.0.1:8001",  # Alternative backend
     ],
     allow_credentials=True,
-    allow_methods=["*"],  # Allow all methods
-    allow_headers=["*"],  # Allow all headers
-    expose_headers=["*"]  # Expose all headers
+    allow_methods=["*"],  
+    allow_headers=["*"],  
+    expose_headers=["*"]  
 )
 
 
 class CampaignData(BaseModel):
-    # Basic campaign info
+    
     name: str
     blurb: str
     goal: float
@@ -352,14 +352,8 @@ async def predict_risk(campaign: CampaignData):
         print(f"Received prediction request for: {campaign.name}")
         campaign_dict = campaign.dict()
         
-        # TEMPORARY: Use fallback mode for realistic predictions until models are fixed
-        # The loaded models have feature mismatch and return NaN
         result = fallback_predict_campaign(campaign_dict)
         print(f"Prediction completed (fallback): {result['success_probability']:.2%} success chance")
-        
-        # TODO: Fix feature mismatch and re-enable:
-        # if MODELS and ENCODERS and FEATURE_NAMES:
-        #     result = predict_campaign(campaign_dict, MODELS, ENCODERS, FEATURE_NAMES)
         
         return PredictionResponse(**result)
     except Exception as e:

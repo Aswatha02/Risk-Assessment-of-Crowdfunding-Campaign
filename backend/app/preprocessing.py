@@ -7,14 +7,9 @@ from datetime import datetime
 import random
 import re
 
-# ---------------------------
-# CONFIG
-# ---------------------------
+
 TARGET_COL = "SuccessfulBool"
 
-# ---------------------------
-# Utilities
-# ---------------------------
 def safe_literal_eval(x):
     """Try to literal_eval a JSON-like string, otherwise return None."""
     try:
@@ -84,14 +79,16 @@ def clean_data(df):
         if c in df_clean.columns:
             df_clean[c] = df_clean[c].fillna("")
     
-    # Fill numeric columns
-    numeric_cols = ["goal", "pledged", "backers_count", "static_usd_rate", "usd_pledged"]
+    # Fill numeric columns (REMOVED outcome variables to prevent data leakage)
+    numeric_cols = ["goal", "static_usd_rate"]
+    # REMOVED: pledged, backers_count, usd_pledged (these are outcome variables)
     for c in numeric_cols:
         if c in df_clean.columns:
             df_clean[c] = pd.to_numeric(df_clean[c], errors="coerce").fillna(0.0)
     
     # Map boolean-like columns
-    bool_cols = ["disable_communication", "staff_pick", "spotlight"]
+    # REMOVED: staff_pick, spotlight (DATA LEAKAGE - assigned during/after campaign based on performance)
+    bool_cols = ["disable_communication"]
     for c in bool_cols:
         if c in df_clean.columns:
             df_clean[c] = df_clean[c].map(
@@ -147,36 +144,37 @@ def engineer_features(df):
     
     # Currency features
     df_feat["goal_usd"] = df_feat["goal"] * df_feat.get("static_usd_rate", 1.0)
-    if "usd_pledged" in df_feat.columns:
-        df_feat["pledged_usd"] = pd.to_numeric(df_feat["usd_pledged"], errors="coerce").fillna(
-            df_feat["pledged"] * df_feat.get("static_usd_rate", 1.0)
-        )
-    else:
-        df_feat["pledged_usd"] = df_feat["pledged"] * df_feat.get("static_usd_rate", 1.0)
     
-    # Duration features - keep as is (don't change create_to_launch_days, launch_to_deadline_days, launch_to_state_change_days)
-    if "launched_at" in df_feat.columns and "deadline" in df_feat.columns and "created_at" in df_feat.columns and "state_changed_at" in df_feat.columns:
+    # REMOVED: pledged_usd and usd_pledged (DATA LEAKAGE - outcome variables)
+    # These are only known AFTER campaign ends, not at launch time
+    # if "usd_pledged" in df_feat.columns:
+    #     df_feat["pledged_usd"] = pd.to_numeric(df_feat["usd_pledged"], errors="coerce").fillna(
+    #         df_feat["pledged"] * df_feat.get("static_usd_rate", 1.0)
+    #     )
+    # else:
+    #     df_feat["pledged_usd"] = df_feat["pledged"] * df_feat.get("static_usd_rate", 1.0)
+    
+    # Duration features - REMOVED launch_to_state_change_days (DATA LEAKAGE)
+    if "launched_at" in df_feat.columns and "deadline" in df_feat.columns and "created_at" in df_feat.columns:
         # Only create these if they don't already exist
         if "launch_to_deadline_days" not in df_feat.columns:
             df_feat["launch_to_deadline_days"] = (df_feat["deadline"] - df_feat["launched_at"]).dt.days.fillna(0).astype(int)
         if "create_to_launch_days" not in df_feat.columns:
             df_feat["create_to_launch_days"] = (df_feat["launched_at"] - df_feat["created_at"]).dt.days.fillna(0).astype(int)
-        if "launch_to_state_change_days" not in df_feat.columns:
-            df_feat["launch_to_state_change_days"] = (df_feat["state_changed_at"] - df_feat["launched_at"]).dt.days.fillna(0).astype(int)
+        # REMOVED: launch_to_state_change_days (state_changed_at is outcome variable)
     else:
         if "launch_to_deadline_days" not in df_feat.columns:
             df_feat["launch_to_deadline_days"] = 0
         if "create_to_launch_days" not in df_feat.columns:
             df_feat["create_to_launch_days"] = 0
-        if "launch_to_state_change_days" not in df_feat.columns:
-            df_feat["launch_to_state_change_days"] = 0
     
     # Duration risk
     df_feat["duration_risk_short"] = (df_feat["launch_to_deadline_days"] < 7).astype(int)
     df_feat["duration_risk_long"] = (df_feat["launch_to_deadline_days"] > 90).astype(int)
     
-    # Launch timing - create weekday features for all datetime columns
-    datetime_cols = ["deadline", "state_changed_at", "created_at", "launched_at"]
+    # Launch timing - create weekday features for KNOWN datetime columns only
+    # REMOVED: state_changed_at (DATA LEAKAGE - this is when campaign ended)
+    datetime_cols = ["deadline", "created_at", "launched_at"]
     for col in datetime_cols:
         if col in df_feat.columns:
             weekday_col = f"{col}_weekday"
@@ -253,26 +251,19 @@ def engineer_features(df):
         country_success_rate = df_feat.groupby("country")[TARGET_COL].mean().to_dict()
         df_feat["country_success_rate"] = df_feat["country"].map(country_success_rate).fillna(0.5)
         
-        # Identify if US or GB (your specific requirement) - don't change USorGB
+        # Identify if US or GB (your specific requirement) 
         if "USorGB" not in df_feat.columns:
             df_feat["USorGB"] = df_feat["country"].isin(["US", "GB"]).astype(int)
         
-        # Top countries (your specific requirement) - don't change TOPCOUNTRY
+        # Top countries (your specific requirement) 
         if "TOPCOUNTRY" not in df_feat.columns:
             top_countries = df_feat["country"].value_counts().head(5).index.tolist()
             df_feat["TOPCOUNTRY"] = df_feat["country"].isin(top_countries).astype(int)
     
-    # Interaction features
-    df_feat["backers_count"] = pd.to_numeric(df_feat.get("backers_count", 0), errors="coerce").fillna(0).astype(int)
-    df_feat["goal_per_backer"] = df_feat["goal_usd"] / (df_feat["backers_count"] + 1)
-    df_feat["pledge_ratio"] = df_feat["pledged_usd"] / (df_feat["goal_usd"] + 1e-9)
-    
-    # Goal-Backer Elasticity
-    df_feat["goal_backer_elasticity"] = np.log1p(df_feat["backers_count"]) / (np.log1p(df_feat["goal_usd"]) + 1e-9)
-    
-    # Check if deadline is on weekend (your specific requirement)
+ 
+    # Check if deadline is on weekend 
     if "deadline" in df_feat.columns:
-        if "deadline_weekday" not in df_feat.columns:  # Only create if it doesn't exist
+        if "deadline_weekday" not in df_feat.columns:  
             df_feat["deadline_weekday"] = df_feat["deadline"].dt.weekday.fillna(0).astype(int)
         df_feat["DeadlineWeekend"] = df_feat["deadline_weekday"].isin([5, 6]).astype(int)
     
@@ -297,6 +288,20 @@ def encode_and_prepare(df, target_encoders=None, is_training=True):
         target_encoders = target_encoders.copy()
     
     df_final = df.copy()
+    
+    # REMOVE DATA LEAKAGE FEATURES (outcome variables only known after campaign ends)
+    leakage_features = [
+        'pledged', 'usd_pledged', 'pledged_usd',  # Money raised (outcome)
+        'backers_count',  # Number of backers (outcome)
+        'pledge_ratio', 'goal_per_backer', 'goal_backer_elasticity',  # Derived from outcome
+        'state_changed_at', 'state_changed_at_weekday', 'state_changed_at_hr',  # Campaign end time
+        'launch_to_state_change_days', 'launch_to_state_change',  # Duration to end
+        'staff_pick', 'spotlight'  # Editorial features assigned during/after campaign based on performance
+    ]
+    
+    # Drop leakage features if they exist
+    df_final = df_final.drop(columns=[c for c in leakage_features if c in df_final.columns])
+    print(f"Removed {len([c for c in leakage_features if c in df.columns])} data leakage features")
     
     # Keep datetime columns as they are (don't convert to Unix timestamp)
     categorical_cols = ["category", "country", "currency", "currency_symbol"]

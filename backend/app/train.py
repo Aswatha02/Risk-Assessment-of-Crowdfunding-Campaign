@@ -58,16 +58,16 @@ def train_crowdrisk():
     models.append(lr_model)
     model_names.append("Logistic Regression")
     
-    # Decision Tree
+    # Decision Tree (increased regularization to prevent overfitting)
     print("   Training Decision Tree...")
-    dt_model = DecisionTree(max_depth=8, min_samples_split=20)
+    dt_model = DecisionTree(max_depth=5, min_samples_split=50)  # More conservative
     dt_model.fit(X_train_np, y_train_np)
     models.append(dt_model)
     model_names.append("Decision Tree")
     
-    # Random Forest
+    # Random Forest (increased regularization to prevent overfitting)
     print("   Training Random Forest...")
-    rf_model = RandomForest(n_trees=20, max_depth=8, min_samples_split=20)
+    rf_model = RandomForest(n_trees=20, max_depth=5, min_samples_split=50)  # More conservative
     rf_model.fit(X_train_np, y_train_np)
     models.append(rf_model)
     model_names.append("Random Forest")
